@@ -48,3 +48,37 @@ export function importResource(cfg: PrismConfig, sourcePathOrUrl: string): Launc
   child.unref();
   return { pid: child.pid, command: cfg.executable, args, detached: true };
 }
+
+/**
+ * Imports a CurseForge modpack (.zip file or curseforge.com URL) by delegating
+ * to PrismLauncher's own CLI importer, exactly like importResource().
+ *
+ * We deliberately do NOT talk to the CurseForge REST API directly: it requires
+ * a registered, non-transferable 3rd-party API key (CurseForge ToS §2.2), and
+ * PrismMCP has no key of its own. PrismLauncher ships with its own registered
+ * key and handles CurseForge auth internally when you hand it a zip/URL via
+ * --import, so this covers "install a known CurseForge pack" without us ever
+ * touching a CurseForge key. It does NOT cover searching/browsing CurseForge's
+ * catalog — that would require our own key. Use search_mods (Modrinth) for
+ * discovery; use this only once you already have a specific CurseForge pack
+ * zip or URL in hand.
+ */
+export function importCurseForgePack(cfg: PrismConfig, zipPathOrUrl: string): LaunchResult {
+  return importResource(cfg, zipPathOrUrl);
+}
+
+/**
+ * Imports a Modrinth modpack (.mrpack file or modrinth.com URL) by delegating
+ * to PrismLauncher's own CLI importer, mirroring importCurseForgePack() for
+ * symmetry. Modrinth's API is open/keyless, so PrismMCP *could* fetch and
+ * parse the .mrpack itself (see modpack/mrpack.ts::importMrpack, which does
+ * exactly that and additionally supports side-aware client/server installs
+ * and writes lockfile provenance). Use THIS tool when you just want Prism's
+ * own importer behavior (matches what a human clicking "Import" in the GUI
+ * gets, including Prism's own de-duplication/repair logic); use
+ * import_mrpack (the mrpack.ts-backed tool) when you need side-splitting or
+ * lockfile tracking.
+ */
+export function importModrinthPack(cfg: PrismConfig, mrpackPathOrUrl: string): LaunchResult {
+  return importResource(cfg, mrpackPathOrUrl);
+}

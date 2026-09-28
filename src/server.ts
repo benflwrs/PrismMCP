@@ -14,7 +14,7 @@ import {
   deleteInstance,
 } from "./instance/instanceManager.js";
 import { readLatestLog, listLogFiles, listCrashReports, readCrashReport, scanLogForIssues } from "./instance/logs.js";
-import { launchInstance, showInstanceWindow, importResource } from "./launcher/cli.js";
+import { launchInstance, showInstanceWindow, importResource, importCurseForgePack, importModrinthPack } from "./launcher/cli.js";
 import { searchMods, getProject, getProjectVersions } from "./modrinth/client.js";
 import {
   installModFromModrinth,
@@ -141,6 +141,34 @@ server.registerTool(
   },
   async ({ sourcePathOrUrl }) => {
     const result = importResource(cfg, sourcePathOrUrl);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.registerTool(
+  "import_curseforge_pack",
+  {
+    title: "Import a CurseForge modpack",
+    description:
+      "Imports a CurseForge modpack from a .zip file or curseforge.com URL by delegating to PrismLauncher's own importer (Prism authenticates with its own registered CurseForge API key internally — PrismMCP never touches a CurseForge key). This only installs a pack you already have identified; it cannot search/browse CurseForge's catalog (use search_mods for Modrinth discovery instead, or find the pack on curseforge.com in a browser first).",
+    inputSchema: { zipPathOrUrl: z.string().describe("Absolute path to a CurseForge .zip, or a curseforge.com pack URL") },
+  },
+  async ({ zipPathOrUrl }) => {
+    const result = importCurseForgePack(cfg, zipPathOrUrl);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.registerTool(
+  "import_modrinth_pack",
+  {
+    title: "Import a Modrinth modpack via Prism's own importer",
+    description:
+      "Imports a .mrpack file or modrinth.com URL by delegating to PrismLauncher's own CLI importer, same mechanism as import_curseforge_pack — matches exactly what a human clicking 'Import' in the GUI would get, including Prism's own de-duplication/repair behavior. Modrinth's API is open (no key needed), so prefer import_mrpack instead when you need side-aware (client/server) installs or PrismMCP's lockfile provenance tracking for classify_mods_by_side; use this tool when you just want Prism's own import path.",
+    inputSchema: { mrpackPathOrUrl: z.string().describe("Absolute path to a .mrpack file, or a modrinth.com pack URL") },
+  },
+  async ({ mrpackPathOrUrl }) => {
+    const result = importModrinthPack(cfg, mrpackPathOrUrl);
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 );
