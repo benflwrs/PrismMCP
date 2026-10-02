@@ -6,7 +6,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { loadConfig } from "./config.js";
-import { instanceRoot } from "./instance/paths.js";
+import { minecraftDir } from "./instance/paths.js";
 import {
   listInstances,
   getInstance,
@@ -446,14 +446,13 @@ server.registerTool(
   {
     title: "Read a file inside an instance",
     description:
-      "Reads a text file relative to an instance's .minecraft directory (e.g. 'config/somemod.toml', 'options.txt', 'server.properties' if present).",
+      "Reads a text file relative to an instance's game directory (minecraft/ or .minecraft/) (e.g. 'config/somemod.toml', 'options.txt', 'server.properties' if present).",
     inputSchema: { instanceId: z.string(), relativePath: z.string() },
   },
   async ({ instanceId, relativePath }) => {
-    const root = instanceRoot(cfg, instanceId);
-    const mcDir = path.join(root, ".minecraft");
+    const mcDir = minecraftDir(cfg, instanceId);
     const target = path.resolve(mcDir, relativePath);
-    if (!target.startsWith(path.resolve(mcDir))) {
+    if (target !== path.resolve(mcDir) && !target.startsWith(path.resolve(mcDir) + path.sep)) {
       throw new Error("Path escapes the instance directory — refused for safety.");
     }
     const text = await fs.readFile(target, "utf-8");
@@ -466,14 +465,13 @@ server.registerTool(
   {
     title: "Write a file inside an instance",
     description:
-      "Writes/overwrites a text file relative to an instance's .minecraft directory (e.g. to edit a mod's config). Creates parent directories as needed.",
+      "Writes/overwrites a text file relative to an instance's game directory (minecraft/ or .minecraft/) (e.g. to edit a mod's config). Creates parent directories as needed.",
     inputSchema: { instanceId: z.string(), relativePath: z.string(), content: z.string() },
   },
   async ({ instanceId, relativePath, content }) => {
-    const root = instanceRoot(cfg, instanceId);
-    const mcDir = path.join(root, ".minecraft");
+    const mcDir = minecraftDir(cfg, instanceId);
     const target = path.resolve(mcDir, relativePath);
-    if (!target.startsWith(path.resolve(mcDir))) {
+    if (target !== path.resolve(mcDir) && !target.startsWith(path.resolve(mcDir) + path.sep)) {
       throw new Error("Path escapes the instance directory — refused for safety.");
     }
     await fs.mkdir(path.dirname(target), { recursive: true });
@@ -482,7 +480,39 @@ server.registerTool(
   }
 );
 
+async function selfCheck(): Promise<number> {
+  const { existsSync } = await import("node:fs");
+  const { instancesDir } = await import("./config.js");
+  const exeIsPath = path.isAbsolute(cfg.executable);
+  const exeOk = exeIsPath ? existsSync(cfg.executable) : true;
+  const dataOk = existsSync(cfg.dataDir);
+  const instDir = instancesDir(cfg);
+  const instances = dataOk ? await listInstances(cfg) : [];
+  let modrinthOk = false;
+  try {
+    const r = await fetch("https://api.modrinth.com/v2/tag/loader", { headers: { "User-Agent": "PrismMCP/0.1.0" } });
+    modrinthOk = r.ok;
+  } catch {
+    modrinthOk = false;
+  }
+  const line = (ok: boolean, label: string, detail: string) => console.log(`${ok ? "[OK]  " : "[FAIL]"} ${label}: ${detail}`);
+  line(exeOk, "Prism executable", cfg.executable + (exeIsPath ? "" : " (bare name, must be on PATH)"));
+  line(dataOk, "Prism data dir", cfg.dataDir);
+  line(true, "Instances dir", `${instDir} (${instances.length} instance(s) found)`);
+  for (const i of instances) console.log(`        - ${i.id}  [${i.loader} ${i.minecraftVersion ?? "?"}]`);
+  line(modrinthOk, "Modrinth API", modrinthOk ? "reachable" : "unreachable (check internet/firewall)");
+  return exeOk && dataOk && modrinthOk ? 0 : 1;
+}
+
 async function main() {
+  if (process.argv.includes("--check")) {
+    process.exit(await selfCheck());
+  }
+  if (process.argv.includes("--print-config")) {
+    const { instancesDir } = await import("./config.js");
+    console.log(JSON.stringify({ ...cfg, instancesDir: instancesDir(cfg) }));
+    process.exit(0);
+  }
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

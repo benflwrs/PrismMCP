@@ -38,6 +38,17 @@ function loaderFromDeps(deps: Record<string, string>): { loader: KnownLoader; lo
   return { loader: "vanilla" };
 }
 
+
+/** Rejects .mrpack paths that would escape the instance dir (spec-mandated check). */
+function safeJoin(baseDir: string, relative: string): string {
+  if (relative.includes("..") || /^[A-Za-z]:[\\/]/.test(relative) || relative.startsWith("/") || relative.startsWith("\\")) {
+    throw new Error(`Unsafe path in .mrpack refused: ${relative}`);
+  }
+  const target = path.resolve(baseDir, relative);
+  if (!target.startsWith(path.resolve(baseDir) + path.sep)) throw new Error(`Unsafe path in .mrpack refused: ${relative}`);
+  return target;
+}
+
 async function downloadFile(url: string, destPath: string): Promise<void> {
   const res = await fetch(url, { headers: { "User-Agent": "PrismMCP/0.1.0" } });
   if (!res.ok) throw new Error(`Download failed ${res.status} ${res.statusText}: ${url}`);
@@ -94,7 +105,7 @@ export async function importMrpack(
     else if (isServerOverride && side === "server") relative = entry.entryName.slice("server-overrides/".length);
     if (!relative) continue;
 
-    const destPath = path.join(mcDir, relative);
+    const destPath = safeJoin(mcDir, relative);
     await fs.mkdir(path.dirname(destPath), { recursive: true });
     await fs.writeFile(destPath, entry.getData());
   }
@@ -108,7 +119,7 @@ export async function importMrpack(
       skippedServerOnly++;
       continue;
     }
-    const destPath = path.join(mcDir, file.path);
+    const destPath = safeJoin(mcDir, file.path);
     const url = file.downloads[0];
     await downloadFile(url, destPath);
     installedFiles++;

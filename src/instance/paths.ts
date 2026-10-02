@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { PrismConfig, instancesDir } from "../config.js";
 
@@ -17,9 +18,18 @@ export function patchesDir(cfg: PrismConfig, instanceId: string): string {
   return path.join(instanceRoot(cfg, instanceId), "patches");
 }
 
-/** The Minecraft game root inside an instance (holds mods/, saves/, logs/, config/...). */
+/**
+ * The Minecraft game root inside an instance (holds mods/, saves/, logs/, config/...).
+ * Mirrors PrismLauncher's MinecraftInstance::gameRoot() exactly: use "minecraft/"
+ * unless ".minecraft/" exists and "minecraft/" doesn't. Both layouts exist in the
+ * wild (older/migrated instances use ".minecraft"), so never hardcode one.
+ */
 export function minecraftDir(cfg: PrismConfig, instanceId: string): string {
-  return path.join(instanceRoot(cfg, instanceId), ".minecraft");
+  const root = instanceRoot(cfg, instanceId);
+  const mcDir = path.join(root, "minecraft");
+  const dotMcDir = path.join(root, ".minecraft");
+  if (fs.existsSync(dotMcDir) && !fs.existsSync(mcDir)) return dotMcDir;
+  return mcDir;
 }
 
 export function modsDir(cfg: PrismConfig, instanceId: string): string {

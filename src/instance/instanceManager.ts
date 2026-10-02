@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { PrismConfig } from "../config.js";
+import { PrismConfig, instancesDir } from "../config.js";
 import { instanceRoot, instanceCfgPath, mmcPackPath, minecraftDir, modsDir, savesDir } from "./paths.js";
 import { readInstanceCfg, writeInstanceCfg, defaultInstanceCfg } from "./instanceCfg.js";
 import { buildMmcPack, writeMmcPack, readMmcPack, loaderFromMmcPack, KnownLoader } from "./mmcPack.js";
@@ -25,7 +25,7 @@ async function pathExists(p: string): Promise<boolean> {
 }
 
 export async function listInstances(cfg: PrismConfig): Promise<InstanceSummary[]> {
-  const root = path.join(cfg.dataDir, "instances");
+  const root = instancesDir(cfg);
   if (!(await pathExists(root))) return [];
   const entries = await fs.readdir(root, { withFileTypes: true });
   const out: InstanceSummary[] = [];
