@@ -45,11 +45,33 @@ Mod jars don't self-describe their Modrinth project. PrismMCP writes a small sid
 
 ## Setup
 
+### Windows (one-command install)
+
+1. Download [`scripts/install-windows.cmd`](scripts/install-windows.cmd) and [`scripts/install-windows.ps1`](scripts/install-windows.ps1) into the same folder (or clone the repo).
+2. Double-click `install-windows.cmd`, or in PowerShell:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\install-windows.ps1
+   ```
+3. Fully quit and reopen Claude Desktop / restart Claude Code.
+
+The script:
+- checks for Node.js 18+ and offers to install Node LTS through `winget` if it's missing
+- installs PrismMCP to `%LOCALAPPDATA%\PrismMCP`, using git if you have it and a GitHub zip if you don't
+- builds the server
+- finds PrismLauncher automatically: the per-user installer path, Program Files, scoop, portable installs, and a custom instances folder
+- registers the server with Claude Code (`claude mcp add -s user`) and Claude Desktop (merges into `claude_desktop_config.json` and backs it up to `.bak` first)
+- runs a self-check that prints `[OK]`/`[FAIL]` lines
+
+It's safe to run again, and running it again is how you update. If your install is somewhere unusual, pass the paths yourself: `-PrismExe "D:\...\prismlauncher.exe" -PrismDir "D:\...\PrismLauncher"`. You can check things at any time with `node %LOCALAPPDATA%\PrismMCP\dist\server.js --check`.
+
+### Manual / Linux / macOS
+
 ```bash
 cd PrismMCP
 npm install
 npm run build
-npm test        # unit tests (pure logic, no PrismLauncher required)
+npm test                   # unit tests (pure logic, no PrismLauncher required)
+node dist/server.js --check  # verify it can find PrismLauncher + reach Modrinth
 ```
 
 ### Configuration (env vars, all optional — sane defaults per OS)
@@ -87,6 +109,8 @@ Since 2022, the CurseForge REST API requires a **registered, non-transferable 3r
 `import_modrinth_pack` is the same CLI-delegation mechanism applied to Modrinth, for symmetry and to match exactly what a human clicking "Import" in the Prism GUI gets (including Prism's own de-duplication/repair behavior). Modrinth's API is open/keyless, though, so PrismMCP *also* has a from-scratch implementation — `import_mrpack` — that parses the `.mrpack` itself, which is what you want when you need client/server side-splitting or PrismMCP's lockfile provenance tracking (powers `classify_mods_by_side`). Use `import_modrinth_pack` when you just want Prism's own import path; use `import_mrpack` when you need those extra capabilities.
 
 
+
+## Status / roadmap
 
 - v1 (this release): core instance/mod/log loop + modpack-level tools (mrpack import/export, diffing, client/server split). Built and tested on Linux against the live Modrinth API; a Windows path (`%APPDATA%\PrismLauncher`, `prismlauncher.exe`) is wired in via `config.ts` but not yet verified against a real Windows PrismLauncher install — do that verification pass before relying on it there.
 - Planned: CurseForge API support (needs an API key), benchmarking/profiling automation (worldgen stress tests, spark integration), automatic dependency-chain installs.
