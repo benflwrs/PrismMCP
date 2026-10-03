@@ -6,6 +6,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { loadConfig } from "./config.js";
+import { loadSkills, buildInstructions, registerSkills } from "./skills.js";
 import { minecraftDir } from "./instance/paths.js";
 import {
   listInstances,
@@ -29,10 +30,13 @@ import { classifyModsBySide, exportServerMods } from "./modpack/sideSplit.js";
 
 const cfg = loadConfig();
 
-const server = new McpServer({
-  name: "prismmcp",
-  version: "0.1.0",
-});
+const skills = loadSkills();
+
+const server = new McpServer(
+  { name: "prismmcp", version: "0.1.0" },
+  { instructions: buildInstructions(skills) }
+);
+registerSkills(server, skills);
 
 const KnownLoaderEnum = z.enum(["fabric", "forge", "neoforge", "quilt", "vanilla"]);
 

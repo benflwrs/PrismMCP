@@ -182,6 +182,20 @@ if (-not $SkipClaudeCode) {
     } else {
         Write-Warn2 "'claude' CLI not found - skipping. (Re-run this script after installing Claude Code.)"
     }
+
+    # Install the bundled skills as native Claude Code skills (~/.claude/skills/<name>/SKILL.md)
+    # so they auto-load by description, in addition to being served over MCP.
+    $skillsSrc = Join-Path $InstallDir "skills"
+    if (Test-Path $skillsSrc) {
+        $skillsDst = Join-Path (Join-Path $env:USERPROFILE ".claude") "skills"
+        New-Item -ItemType Directory -Force -Path $skillsDst | Out-Null
+        foreach ($s in Get-ChildItem $skillsSrc -Directory) {
+            $dst = Join-Path $skillsDst $s.Name
+            New-Item -ItemType Directory -Force -Path $dst | Out-Null
+            Copy-Item (Join-Path $s.FullName "*") $dst -Recurse -Force
+            Write-Ok "Installed Claude Code skill '$($s.Name)' -> $dst"
+        }
+    }
 }
 
 # ---------------------------------------------------------------- 5b. Claude Desktop

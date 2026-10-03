@@ -110,6 +110,25 @@ Since 2022, the CurseForge REST API requires a **registered, non-transferable 3r
 
 
 
+## Built-in modpack knowledge (skills)
+
+PrismMCP ships with two knowledge skills in [`skills/`](skills/):
+- **`modpack-design`** covers client vs server mods, performance pain points, a baseline set of performance mods, progression and compatibility design, and how to benchmark.
+- **`prismmcp`** explains how to drive these tools well.
+
+Any agent connected to PrismMCP gets them automatically, with no setup per agent:
+
+| Channel | Who it works for |
+|---|---|
+| Server **instructions** (sent when the client connects) | Most MCP clients add these to the agent's system prompt; they tell it to read the skills before touching mods |
+| **Resources** `skill://modpack-design`, `skill://prismmcp` | Clients that support MCP resources (Claude Desktop: attach from the + menu; Claude Code: `@prismmcp:skill://modpack-design`) |
+| **Prompts** `/modpack-design`, `/prismmcp` | Clients with prompt or slash-command support |
+| **Tool** `get_skill` | Every client, including ones that only support tools; the agent can call it itself |
+
+The Windows installer also copies them into `~/.claude/skills/` as native Claude Code skills, so Claude Code loads them automatically based on what the task is about.
+
+For any other agent framework, point it at `skills/*/SKILL.md`. These are standard SKILL.md files.
+
 ## Status / roadmap
 
 - v1 (this release): core instance/mod/log loop + modpack-level tools (mrpack import/export, diffing, client/server split). Built and tested on Linux against the live Modrinth API; a Windows path (`%APPDATA%\PrismLauncher`, `prismlauncher.exe`) is wired in via `config.ts` but not yet verified against a real Windows PrismLauncher install — do that verification pass before relying on it there.
