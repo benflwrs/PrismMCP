@@ -27,6 +27,7 @@ import {
 import { diffModLists } from "./mods/modDiff.js";
 import { importMrpack, exportMrpack } from "./modpack/mrpack.js";
 import { classifyModsBySide, exportServerMods } from "./modpack/sideSplit.js";
+import { resolveCurseForgeRef, startStagedInstall, finishStagedInstall, ResolvedCurseForgeFile } from "./curseforge/stagedInstall.js";
 
 const cfg = loadConfig();
 
@@ -173,6 +174,54 @@ server.registerTool(
   },
   async ({ mrpackPathOrUrl }) => {
     const result = importModrinthPack(cfg, mrpackPathOrUrl);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+// ---------- CurseForge mods (downloaded by Prism itself) ----------
+
+server.registerTool(
+  "install_curseforge_mods",
+  {
+    title: "Install CurseForge mods (via Prism's own downloader)",
+    description:
+      "Installs one or more CurseForge-only mods into an existing instance. PrismMCP builds a tiny CurseForge pack listing just these files and has PrismLauncher import it (Prism downloads with its own CurseForge access, same as 'Add mods → CurseForge'), then moves the jars into the target instance and deletes the temporary staging instance. The user must click OK in Prism's import window; if an author blocked third-party downloads Prism shows its 'download manually' dialog. If the result status is 'waiting', call finish_curseforge_install afterwards. Prefer install_mod (Modrinth) when a mod exists there. CurseForge files don't pull dependencies — install required libraries yourself.",
+    inputSchema: {
+      instanceId: z.string(),
+      mods: z
+        .array(
+          z.object({
+            ref: z.string().optional().describe("curseforge.com/minecraft/mc-mods/<slug>[/files/<id>] URL or bare slug; the best file for the instance's MC version + loader is picked"),
+            projectId: z.number().int().optional(),
+            fileId: z.number().int().optional(),
+          })
+        )
+        .min(1),
+      waitSeconds: z.number().int().min(0).max(600).optional().describe("How long to wait for the user to confirm in Prism before returning 'waiting' (default 180)"),
+    },
+  },
+  async ({ instanceId, mods, waitSeconds }) => {
+    const target = await getInstance(cfg, instanceId);
+    const files: ResolvedCurseForgeFile[] = [];
+    for (const m of mods) {
+      if (m.projectId && m.fileId) files.push({ projectId: m.projectId, fileId: m.fileId, source: "explicit" });
+      else if (m.ref) files.push(await resolveCurseForgeRef(m.ref, target));
+      else throw new Error("Each mod needs either ref, or projectId + fileId.");
+    }
+    const result = await startStagedInstall(cfg, instanceId, files, waitSeconds ?? 180);
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+  }
+);
+
+server.registerTool(
+  "finish_curseforge_install",
+  {
+    title: "Finish a pending CurseForge mod install",
+    description: "Completes an install_curseforge_mods call that returned status 'waiting' (after the user confirmed Prism's import window): moves the jars into the target instance and removes the staging instance.",
+    inputSchema: { targetInstanceId: z.string(), stagingName: z.string().startsWith("PrismMCP-staging-") },
+  },
+  async ({ targetInstanceId, stagingName }) => {
+    const result = await finishStagedInstall(cfg, targetInstanceId, stagingName);
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
   }
 );

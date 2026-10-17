@@ -19,6 +19,7 @@ So **no fork of PrismLauncher is required** — PrismMCP is a thin, well-tested 
 **Launching**
 - `launch_instance` (offline/account/server/world options), `show_instance_window`
 - `import_resource` — generic passthrough to Prism's own `.mrpack`/CurseForge zip/URL importer
+- `install_curseforge_mods` / `finish_curseforge_install` — install individual **CurseForge-only mods** into an existing instance. PrismMCP builds a throwaway one-instance CurseForge pack listing just those files, Prism imports it (downloading with its own CurseForge access, like "Add mods → CurseForge"), then the jars + Prism's `.index` metadata are moved into your instance and the staging instance is deleted. You click OK once in Prism's import window. Accepts curseforge.com URLs or slugs (ids are looked up via the public read-only api.cfwidget.com) or explicit `projectId`+`fileId`.
 - `import_curseforge_pack` / `import_modrinth_pack` — same underlying mechanism as `import_resource`, split into named tools for clarity/discoverability (see note below on why CurseForge/Modrinth imports both go through Prism's CLI rather than PrismMCP hitting either platform's API directly for imports)
 
 **Logs & debugging**
@@ -100,11 +101,11 @@ Or add to your MCP client's config JSON:
 }
 ```
 
-## Why CurseForge is import-only, no search — and how Modrinth imports mirror it
+## Why CurseForge goes through Prism (no search) — and how Modrinth imports mirror it
 
 Since 2022, the CurseForge REST API requires a **registered, non-transferable 3rd-party API key** (Overwolf's ToS explicitly forbids sharing a key across tools — see [their terms](https://support.curseforge.com/en/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions)). PrismLauncher itself ships with its own registered key baked into the binary, which is why the GUI can browse/download CurseForge content directly. PrismMCP deliberately does **not** hardcode or reuse Prism's key — reusing another project's non-transferable key risks getting it revoked for every PrismLauncher user, not just this tool.
 
-`import_curseforge_pack` delegates straight to `prismlauncher --import <zip-or-url>`: PrismLauncher handles its own CurseForge auth internally, so PrismMCP never touches a CurseForge key at all. This covers "install a specific CurseForge pack I already found," but not searching/browsing CurseForge's catalog from the agent — use Modrinth's `search_mods` for discovery, or have the user paste a CurseForge pack link/zip path once they've found it.
+`import_curseforge_pack` delegates straight to `prismlauncher --import <zip-or-url>`: PrismLauncher handles its own CurseForge auth internally, so PrismMCP never touches a CurseForge key at all. This covers "install a specific CurseForge pack I already found," `install_curseforge_mods` reuses the same mechanism for single mods (wrapped in a temporary pack). Mods whose authors disabled third-party downloads show Prism's normal "download manually" dialog; PrismMCP never bypasses that. Neither covers searching/browsing CurseForge's catalog from the agent — use Modrinth's `search_mods` for discovery, or have the user paste a CurseForge pack link/zip path once they've found it.
 
 `import_modrinth_pack` is the same CLI-delegation mechanism applied to Modrinth, for symmetry and to match exactly what a human clicking "Import" in the Prism GUI gets (including Prism's own de-duplication/repair behavior). Modrinth's API is open/keyless, though, so PrismMCP *also* has a from-scratch implementation — `import_mrpack` — that parses the `.mrpack` itself, which is what you want when you need client/server side-splitting or PrismMCP's lockfile provenance tracking (powers `classify_mods_by_side`). Use `import_modrinth_pack` when you just want Prism's own import path; use `import_mrpack` when you need those extra capabilities.
 
